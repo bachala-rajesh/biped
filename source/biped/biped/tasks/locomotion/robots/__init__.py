@@ -25,7 +25,7 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": BipedBlindFlatEnvCfg,
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PointFootPPORunnerCfg",
     },
 )
 
@@ -35,7 +35,7 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": BipedBlindFlatEnvCfg_PLAY,
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PointFootPPORunnerCfg",
     },
 )
 
@@ -45,7 +45,7 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": BipedBlindRoughEnvCfg,
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PointFootPPORunnerCfg",
     },
 )
 
@@ -55,6 +55,6 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": BipedBlindRoughEnvCfg_PLAY,
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PointFootPPORunnerCfg",
     },
 )

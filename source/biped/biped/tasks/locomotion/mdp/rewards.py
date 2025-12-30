@@ -83,15 +83,22 @@ def feet_distance(
 
     asset: Articulation = env.scene[asset_cfg.name]
 
-    feet_positions = asset.data.joint_pos[sensor_cfg.body_ids]
+    # feet_positions = asset.data.joint_pos[sensor_cfg.body_ids]
 
-    if feet_positions is None:
-        return torch.zeros(env.num_envs)
+    # if feet_positions is None:
+    #     return torch.zeros(env.num_envs)
 
-    # feet distance on x-y plane
-    feet_distance = torch.norm(feet_positions[0, :2] - feet_positions[1, :2], dim=-1)
+    # # feet distance on x-y plane
+    # feet_distance = torch.norm(feet_positions[0, :2] - feet_positions[1, :2], dim=-1)
 
-    return torch.clamp(0.1 - feet_distance, min=0.0)
+    # return torch.clamp(0.1 - feet_distance, min=0.0)
+    feet_pos_w = asset.data.body_pos_w[:, sensor_cfg.body_ids] # Shape: (Num_Envs, 2_Feet, 3_XYZ)
+
+    # Calculate distance between Foot 0 and Foot 1 for EACH robot
+    diff = feet_pos_w[:, 0, :2] - feet_pos_w[:, 1, :2]
+    dist = torch.norm(diff, dim=-1)
+
+    return torch.clamp(0.1 - dist, min=0.0)
 
 
 def no_contact(env: ManagerBasedRLEnv, sensor_cfg: SceneEntityCfg) -> torch.Tensor:
@@ -367,7 +374,7 @@ class ActionSmoothnessPenalty(ManagerTermBase):
         self.dt = env.step_dt
         self.prev_prev_action = None
         self.prev_action = None
-        self.__name__ = "action_smoothness_penalty"
+        # self.__name__ = "action_smoothness_penalty"
 
     def __call__(self, env: ManagerBasedRLEnv) -> torch.Tensor:
         """Compute the action smoothness penalty.
