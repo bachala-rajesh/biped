@@ -16,7 +16,14 @@ from .biped_env_cfg import (
     BipedBlindFlatEnvCfg_PLAY,
     BipedBlindRoughEnvCfg,
     BipedBlindRoughEnvCfg_PLAY,
+    BipedBlindStairEnvCfg,
+    BipedBlindStairEnvCfg_PLAY,
 )
+
+
+######################################
+#### Biped blind flat environment
+######################################
 
 
 gym.register(
@@ -39,6 +46,14 @@ gym.register(
     },
 )
 
+
+
+
+######################################
+#### Biped blind rough environment
+######################################
+
+
 gym.register(
     id="biped_walk_rough",
     entry_point="isaaclab.envs:ManagerBasedRLEnv",
@@ -55,6 +70,33 @@ gym.register(
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": BipedBlindRoughEnvCfg_PLAY,
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PointFootPPORunnerCfg",
+    },
+)
+
+
+
+######################################
+#### Biped blind stairs environment
+######################################
+
+
+gym.register(
+    id="biped_walk_stairs",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": BipedBlindStairEnvCfg,
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PointFootPPORunnerCfg",
+    },
+)
+
+gym.register(
+    id="biped_walk_stairs_play",
+    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": BipedBlindStairEnvCfg_PLAY,
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PointFootPPORunnerCfg",
     },
 )
