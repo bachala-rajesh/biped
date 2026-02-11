@@ -5,9 +5,11 @@
 
 from isaaclab.utils import configclass
 
-from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, RslRlPpoAlgorithmCfg
-
-
+from isaaclab_rl.rsl_rl import (
+    RslRlOnPolicyRunnerCfg,
+    RslRlPpoActorCriticCfg,
+    RslRlPpoAlgorithmCfg,
+)
 
 
 @configclass
@@ -15,7 +17,7 @@ class PointFootPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     runner_type = "OnPolicyRunner"
     num_steps_per_env = 24
     max_iterations = 3001
-    save_interval = 200
+    save_interval = 1000
     experiment_name = "bipedal_locomotion"
     empirical_normalization = False
     policy = RslRlPpoActorCriticCfg(

@@ -145,7 +145,7 @@ def get_gait_command(env: ManagerBasedRLEnv, command_name: str) -> torch.Tensor:
 
     Returns:
         torch.Tensor: The gait command parameters [frequency, offset, duration].
-                     Shape: (num_envs, 3).
+                    Shape: (num_envs, 3).
     """
     return env.command_manager.get_command(command_name)
 
