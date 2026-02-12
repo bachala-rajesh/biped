@@ -16,10 +16,11 @@ from isaaclab_rl.rsl_rl import (
 class PointFootPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     runner_type = "OnPolicyRunner"
     num_steps_per_env = 24
-    max_iterations = 3001
+    max_iterations = 5001
     save_interval = 1000
+    init_noise_std = 0.7
     experiment_name = "bipedal_locomotion"
-    empirical_normalization = False
+    empirical_normalization = True
     policy = RslRlPpoActorCriticCfg(
         class_name="ActorCritic",
         init_noise_std=1.0,
@@ -34,7 +35,7 @@ class PointFootPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         entropy_coef=0.01,
         num_learning_epochs=5,
         num_mini_batches=4,
-        learning_rate=1.0e-3,
+        learning_rate=3.0e-4,
         schedule="adaptive",
         gamma=0.99,
         lam=0.95,
