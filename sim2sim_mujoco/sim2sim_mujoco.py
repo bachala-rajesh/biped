@@ -86,10 +86,10 @@ def get_observation(model, data, last_actions, gait_time, cmd_vel):
         [
             obs_ang_vel.reshape(-1),  # [:,3]
             obs_proj_gravity.reshape(-1),  # [:,3]
+            obs_cmd.reshape(-1),  # [:,3]
             obs_joint_pos.reshape(-1),  # [:,6]
             obs_joint_vel.reshape(-1),  # [:,6]
             obs_last_actions.reshape(-1),  # [:,6]
-            obs_cmd.reshape(-1),  # [:,3]
             obs_gait_phase_sin_cos.reshape(-1),  # [:,2]
             obs_gait_command.reshape(-1),  # [:,3]
         ]
