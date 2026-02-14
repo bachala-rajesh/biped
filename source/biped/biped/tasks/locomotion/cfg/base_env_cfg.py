@@ -200,7 +200,7 @@ class ObservationsCfg:
             self.enable_corruption = True
             self.concatenate_terms = True
             self.history_length = 5
-            self.flatten_history_dim = True
+            self.flatten_history_dim = True         # TODO: change it to False for stackinf frame by frame observations
 
     @configclass
     class CriticCfg(ObsGroup):

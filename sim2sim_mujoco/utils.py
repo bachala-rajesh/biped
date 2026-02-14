@@ -7,23 +7,29 @@ from typing import List
 
 
 class HistoryBuffer:
-    def __init__(self, history_len: int):
+    def __init__(self, history_len: int, num_obs_terms: int = 8):
         self.history_len = history_len
-        self.buffer = deque(maxlen=history_len)
+        self.num_obs_terms = num_obs_terms
+        self.buffers = [deque(maxlen=history_len) for _ in range(num_obs_terms)]
 
-    def update_history(self, current_frame: np.ndarray):
-        self.buffer.appendleft(current_frame)
-
-    def reset(self):
-        self.buffer.clear()
+    def update_history(self, current_terms: List[np.ndarray]):
+        # append the new data to the end of the each term buffer
+        for i, term_data in enumerate(current_terms):
+            self.buffers[i].append(term_data.flatten())
 
     def get_stacked_obs(self) -> np.ndarray:
-        # fill the buffer with copies of the first frame if it's not full
-        while len(self.buffer) < self.history_len:
-            self.buffer.append(self.buffer[0])
+        term_histories = []
+        for buff in self.buffers:
+            # handle the case where the buffer is not full
+            while len(buff) < self.history_len:
+                buff.append(buff[-1])
 
-        stacked = np.concatenate(list(self.buffer))
-        return stacked.astype(np.float32)
+            # concatenate
+            term_histories.append(np.concatenate(list(buff)))
+
+        # concatenate the term histories
+        final_obs = np.concatenate(term_histories)
+        return final_obs.astype(np.float32)
 
 
 def get_mujoco_data(
@@ -60,6 +66,6 @@ def get_mujoco_data(
 
 def get_projected_gravity(quat: np.ndarray) -> np.ndarray:
     r = R.from_quat(quat)
-    g_world = np.array([0.0, 0.0, -1])
+    g_world = np.array([0.0, 0.0, -1.0])
     g_base = r.apply(g_world, inverse=True)
     return g_base.flatten()
