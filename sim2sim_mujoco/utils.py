@@ -7,10 +7,10 @@ from typing import List
 
 
 class HistoryBuffer:
-    def __init__(self, history_len: int, num_obs_terms: int = 8):
-        self.history_len = history_len
+    def __init__(self, obs_history_len: int, num_obs_terms: int = 8):
+        self.obs_history_len = obs_history_len
         self.num_obs_terms = num_obs_terms
-        self.buffers = [deque(maxlen=history_len) for _ in range(num_obs_terms)]
+        self.buffers = [deque(maxlen=obs_history_len) for _ in range(num_obs_terms)]
 
     def update_history(self, current_terms: List[np.ndarray]):
         # append the new data to the end of the each term buffer
@@ -21,7 +21,7 @@ class HistoryBuffer:
         term_histories = []
         for buff in self.buffers:
             # handle the case where the buffer is not full
-            while len(buff) < self.history_len:
+            while len(buff) < self.obs_history_len:
                 buff.append(buff[-1])
 
             # concatenate
