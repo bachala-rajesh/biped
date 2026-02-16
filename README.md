@@ -45,9 +45,6 @@ Run a trained policy (fixed/random commands):
 ```bash
 python scripts/rsl_rl/play.py --task=biped_walk_flat_play --load_run RUN_NAME
 ```
-```bash
-python scripts/list_envs.py
-```
 
 Or with a specific checkpoint file:
 
@@ -85,7 +82,7 @@ To also view live observation and action data:
 python scripts/rsl_rl/debug_policy.py --task=biped_walk_flat_play --checkpoint path/to/model.pt --obs_data_view
 ```
 
-****### Sim2Sim Deployment (MuJoCo)
+### Sim2Sim Deployment (MuJoCo)
 
 Deploy trained policies in MuJoCo for sim-to-sim validation. Update `relative_policy_path` in each script to point to your exported policy.
 
