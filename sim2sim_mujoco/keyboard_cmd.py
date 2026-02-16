@@ -110,6 +110,16 @@ def on_release(key):
 
 def start_keyboard_listener():
     """Start keyboard listener"""
+    print("=" * 60)
+    print("Keyboard control instructions:")
+    print("  ↑ Up arrow: Increase forward speed (vx)")
+    print("  ↓ Down arrow: Decrease forward speed (vx)")
+    print("  ← Left arrow: Increase left turn rate (dyaw)")
+    print("  → Right arrow: Increase right turn rate (dyaw)")
+    print("  3 key: Stop robot")
+    print("  0 key: Reset all speeds to 0")
+    print("  F key: Toggle camera follow mode")
+    print("=" * 60)
     listener = keyboard.Listener(on_press=on_press, on_release=on_release)
     listener.start()
     return listener

@@ -3,65 +3,38 @@ import numpy as np
 import mujoco
 import mujoco.viewer
 import mujoco_viewer
-from tqdm import tqdm
-from collections import deque
-from scipy.spatial.transform import Rotation as R
 import torch
 import os
 import matplotlib.pyplot as plt
 from pathlib import Path
 import time
-from utils import HistoryBuffer, get_mujoco_data, get_projected_gravity
+from utils import HistoryBuffer, get_mujoco_data
 from keyboard_cmd import cmd, start_keyboard_listener
+from sim_config import Sim2simCfg
 
 relative_policy_path = (
     "logs/rsl_rl/bipedal_locomotion/2026-02-12_08-33-37_flat/exported/policy.pt"
 )
 
 
-class Sim2simCfg:
-    class sim_config:
-        sim_dt = 1 / 200
-        decimation = 4
-
-    class robot_config:
-        # observation
-        obs_history_len = 5
-        num_obs_terms = 8
-        lin_vel_scale = 1.0
-        ang_vel_scale = 1.0
-        dof_pos_scale = 1.0
-        dof_vel_scale = 1.0
-
-        # joints
-        joint_names = {
-            "left_hip_pitch_joint": 0.3,
-            "right_hip_pitch_joint": -0.3,
-            "left_hip_roll_joint": 0.0,
-            "right_hip_roll_joint": 0.0,
-            "left_knee_joint": 0.6,
-            "right_knee_joint": -0.6,
-        }
-        initial_height = 0.53
-        action_scale = 0.25
-
-        # gait
-        gait_freq = 1.75  # [Hz]
-        gait_phase = 0.5  # [0-1]
-        gait_duration = 0.5  # [0-1]
-
-        # mujoco model gains
-        stiffness_gain = 40.0
-        damping_gain = -2.5
+# --- Data collection lists for plotting (CONTROL ONLY) ---
+time_data = []
+commanded_joint_pos_data = []
+actual_joint_pos_data = []
+actions_data = []
+commanded_lin_vel_x_data = []
+commanded_lin_vel_y_data = []
+commanded_ang_vel_z_data = []
+actual_lin_vel_data = []
+actual_ang_vel_data = []
 
 
 def get_observation(
     model, data, last_actions, gait_time, cmd_vel, initial_joint_pos, obs_gait_command
 ):
-    quat, ang_vel, joints_pos, joints_vel = get_mujoco_data(
+    proj_gravity, lin_vel, ang_vel, joints_pos, joints_vel = get_mujoco_data(
         model, data, Sim2simCfg.robot_config.joint_names
     )
-    obs_proj_gravity = get_projected_gravity(quat)
 
     # calculate gait phase
     gait_phase_val = (gait_time * Sim2simCfg.robot_config.gait_freq) % 1.0
@@ -87,6 +60,7 @@ def get_observation(
         dtype=np.float32,
     )
     obs_last_actions = last_actions
+    obs_proj_gravity = proj_gravity
 
     # form the observation vector as a list of numpy arrays
     current_obs = [
@@ -104,10 +78,10 @@ def get_observation(
     if abs(obs_proj_gravity[0]) > 0.90:
         fall_status = True
 
-    return current_obs, fall_status
+    return current_obs, lin_vel, ang_vel, fall_status
 
 
-def run_mujoco(rl_model_path, robot_model_path):
+def run_mujoco(rl_policy_path, robot_model_path):
     """
     Run the Mujoco simulation using the provided policy and configuration.
 
@@ -120,25 +94,13 @@ def run_mujoco(rl_model_path, robot_model_path):
         None
     """
     # Start keyboard listener
-    print("=" * 60)
-    print("Keyboard control instructions:")
-    print("  ↑ Up arrow: Increase forward speed (vx)")
-    print("  ↓ Down arrow: Decrease forward speed (vx)")
-    print("  ← Left arrow: Increase left turn rate (dyaw)")
-    print("  → Right arrow: Increase right turn rate (dyaw)")
-    print("  3 key: Stop robot")
-    print("  0 key: Reset all speeds to 0")
-    print("  F key: Toggle camera follow mode")
-    print("=" * 60)
     keyboard_listener = start_keyboard_listener()
 
-    # load policy
-    print(f"Loading Policy: {rl_model_path}")
-    policy = torch.jit.load(rl_model_path)
+    # load policy model
+    policy = torch.jit.load(rl_policy_path)
     policy.eval()
 
-    # load model
-    print(f"Loading Model: {robot_model_path}")
+    # load mujoco model
     model = mujoco.MjModel.from_xml_path(robot_model_path)
     data = mujoco.MjData(model)
 
@@ -156,11 +118,6 @@ def run_mujoco(rl_model_path, robot_model_path):
     step_counter = 0
     last_actions = np.zeros(6, dtype=np.float32)
     gait_time_accumulator = 0.0
-
-    #  time related variables
-    start_time = time.time()
-    real_start_time = time.time()
-    warmup_delay = 0.10  # Wait few seconds before turning on Policy
 
     # initial joint positions
     initial_joint_pos = np.array(
@@ -198,7 +155,7 @@ def run_mujoco(rl_model_path, robot_model_path):
         cmd_vel = np.array([cmd.vx, cmd.vy, cmd.dyaw], dtype=np.float32)
         mujoco.mj_forward(model, data)
         fall_status = False
-        init_obs_list, fall_status = get_observation(
+        init_obs_list, lin_vel, ang_vel, fall_status = get_observation(
             model,
             data,
             np.zeros(6, dtype=np.float32),
@@ -215,6 +172,11 @@ def run_mujoco(rl_model_path, robot_model_path):
         viewer.cam.distance = 5.0  # Zoom out
         viewer.cam.azimuth = 135  # Rotate camera (0 = Behind, 90 = Right Side).
         viewer.cam.elevation = -20  # Look slightly down
+
+        #  time related variables
+        start_time = time.time()
+        real_start_time = time.time()
+        warmup_delay = 0.10  # Wait few seconds before turning on Policy
 
         while viewer.is_running():
             # Check if we are still in Warmup
@@ -239,7 +201,7 @@ def run_mujoco(rl_model_path, robot_model_path):
 
                 # get observation
                 cmd_vel = np.array([cmd.vx, cmd.vy, cmd.dyaw], dtype=np.float32)
-                current_obs_list, fall_status = get_observation(
+                current_obs_list, lin_vel, ang_vel, fall_status = get_observation(
                     model,
                     data,
                     last_actions,
@@ -283,6 +245,24 @@ def run_mujoco(rl_model_path, robot_model_path):
             # step simulation
             mujoco.mj_step(model, data)
 
+            # --- Collect low-frequency data for plotting (CONTROL ONLY) ---
+            time_data.append(gait_time_accumulator)
+            commanded_joint_pos_data.append(targets.copy())
+            current_actual_joints = []
+            for name in Sim2simCfg.robot_config.joint_names:
+                addr = model.joint(name).qposadr
+                current_actual_joints.append(data.qpos[addr])
+
+            actual_joint_pos_data.append(np.array(current_actual_joints))
+            actions_data.append(last_actions.copy())
+            commanded_lin_vel_x_data.append(cmd.vx)
+            commanded_lin_vel_y_data.append(cmd.vy)
+            commanded_ang_vel_z_data.append(cmd.dyaw)
+            actual_lin_vel_data.append(
+                lin_vel[:2].copy()
+            )  # x and y linear velocity in the base frame
+            actual_ang_vel_data.append(ang_vel[2].copy())  # z angular velocity
+
             # update viewer
             viewer.sync()
 
@@ -300,6 +280,131 @@ def run_mujoco(rl_model_path, robot_model_path):
     keyboard_listener.stop()
 
 
+def plot_data(logs_dir, rl_policy_path):
+    global \
+        time_data, \
+        commanded_joint_pos_data, \
+        actual_joint_pos_data, \
+        actions_data, \
+        commanded_lin_vel_x_data, \
+        commanded_lin_vel_y_data, \
+        commanded_ang_vel_z_data, \
+        actual_lin_vel_data, \
+        actual_ang_vel_data
+
+    # Setup save paths: logs dir in sim2sim_mujoco, filename with Kp, Kd and policy name
+    rl_policy_path = Path(rl_policy_path)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    save_prefix = f"{rl_policy_path.parent.parent.name}_Kp{Sim2simCfg.robot_config.stiffness_gain}_Kd{Sim2simCfg.robot_config.damping_gain}"
+
+    # Convert collected data to numpy arrays
+    time_data = np.array(time_data)
+    commanded_joint_pos_data = np.array(commanded_joint_pos_data)
+    actual_joint_pos_data = np.array(actual_joint_pos_data)
+    actions_data = np.array(actions_data)
+    commanded_lin_vel_x_data = np.array(commanded_lin_vel_x_data)
+    commanded_lin_vel_y_data = np.array(commanded_lin_vel_y_data)
+    commanded_ang_vel_z_data = np.array(commanded_ang_vel_z_data)
+    actual_lin_vel_data = np.array(actual_lin_vel_data)
+    actual_ang_vel_data = np.array(actual_ang_vel_data)
+
+    # Plot 1: Commanded vs Actual Joint Positions
+    num_joints = len(Sim2simCfg.robot_config.joint_names.keys())
+    n_cols = 3  # Or adjust based on num_joints
+    n_rows = (num_joints + n_cols - 1) // n_cols
+
+    fig1, axes1 = plt.subplots(n_rows, n_cols, figsize=(15, 4 * n_rows), sharex=True)
+    axes1 = axes1.flatten()
+
+    joint_names = Sim2simCfg.robot_config.joint_names.keys()
+
+    for i, name in enumerate(joint_names):
+        ax = axes1[i]
+        ax.plot(
+            time_data,
+            commanded_joint_pos_data[:, i],
+            label="Commanded",
+            linestyle="--",
+            color="red",
+        )
+        ax.plot(time_data, actual_joint_pos_data[:, i], label="Actual", color="blue")
+        ax.set_title(name)
+        ax.set_xlabel("Time [s]")
+        ax.set_ylabel("Position [rad]")
+
+    # global title
+    fig1.suptitle(
+        f"Joint Tracking Performance (Kp={Sim2simCfg.robot_config.stiffness_gain}, Kd={Sim2simCfg.robot_config.damping_gain})",
+        fontsize=16,
+    )
+    plt.tight_layout()
+    fig1_path = logs_dir / f"{save_prefix}_joint_positions.png"
+    fig1.savefig(fig1_path, dpi=150)
+    print(f"Saved: {fig1_path}")
+
+    # PLOT 2: Commanded vs Actual Base Velocities
+    fig2, axes2 = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
+
+    # Linear Velocity X
+    axes2 = axes2.flatten()
+    axes2[0].plot(
+        time_data,
+        commanded_lin_vel_x_data,
+        label="Commanded Vx",
+        linestyle="--",
+        color="red",
+    )
+    axes2[0].plot(time_data, actual_lin_vel_data[:, 0], label="Actual Vx", color="blue")
+    axes2[0].set_title("Base Linear Velocity X")
+    axes2[0].set_xlabel("Time [s]")
+    axes2[0].set_ylabel("Velocity [m/s]")
+    axes2[0].legend()
+    axes2[0].grid(True)
+
+    # Linear Velocity Y
+    axes2[1].plot(
+        time_data,
+        commanded_lin_vel_y_data,
+        label="Commanded Vy",
+        linestyle="--",
+        color="red",
+    )
+    axes2[1].plot(time_data, actual_lin_vel_data[:, 1], label="Actual Vy", color="blue")
+    axes2[1].set_title("Base Linear Velocity Y")
+    axes2[1].set_xlabel("Time [s]")
+    axes2[1].set_ylabel("Velocity [m/s]")
+    axes2[1].legend()
+    axes2[1].grid(True)
+
+    # Angular Velocity Z
+    axes2[2].plot(
+        time_data,
+        commanded_ang_vel_z_data,
+        label="Commanded Dyaw",
+        linestyle="--",
+        color="red",
+    )
+    axes2[2].plot(time_data, actual_ang_vel_data, label="Actual Dyaw", color="blue")
+    axes2[2].set_title("Base Angular Velocity Z (Dyaw)")
+    axes2[2].set_xlabel("Time [s]")
+    axes2[2].set_ylabel("Angular Velocity [rad/s]")
+    axes2[2].legend()
+    axes2[2].grid(True)
+
+    # global title
+    fig2.suptitle(
+        f"Base Velocity Tracking Performance (Kp={Sim2simCfg.robot_config.stiffness_gain}, Kd={Sim2simCfg.robot_config.damping_gain})",
+        fontsize=16,
+    )
+    plt.tight_layout()
+    fig2_path = logs_dir / f"{save_prefix}_base_velocities.png"
+    fig2.savefig(fig2_path, dpi=150)
+    print(f"Saved: {fig2_path}")
+
+    # view plots
+    plt.show()
+
+
 def main():
     global relative_policy_path
 
@@ -307,11 +412,19 @@ def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
 
-    rl_model_path = os.path.join(project_root, relative_policy_path)
+    rl_policy_path = os.path.join(project_root, relative_policy_path)
     robot_model_path = os.path.join(script_dir, "mujoco_xml", "SF_biped.xml")
 
     # run simulation
-    run_mujoco(rl_model_path, robot_model_path)
+    print(f"Running Simulation with Policy: {rl_policy_path}")
+    print(f"Running Simulation with Model: {robot_model_path}")
+    run_mujoco(rl_policy_path, robot_model_path)
+
+    #  Plotting Section
+    print("Simulation finished. Generating plots...")
+
+    logs_dir_path = Path(script_dir) / "log_plots"
+    plot_data(logs_dir_path, rl_policy_path)
 
 
 if __name__ == "__main__":
