@@ -35,10 +35,14 @@ class HistoryBuffer:
 def get_mujoco_data(
     model: mujoco.MjModel, data: mujoco.MjData, joint_names: List[str]
 ) -> np.ndarray:
-    quat_raw = data.sensor("orientation").data.copy()
-    quat = np.array(
-        [quat_raw[1], quat_raw[2], quat_raw[3], quat_raw[0]], dtype=np.float32
-    )
+    quat_raw = data.sensor("orientation").data[[1, 2, 3, 0]].astype(np.double)
+    r = R.from_quat(quat_raw)
+
+    # projected gravity in the base frame
+    proj_gravity = r.apply(np.array([0.0, 0.0, -1.0]), inverse=True).astype(np.double)
+
+    # linear velocity in the base frame
+    lin_vel = r.apply(data.qvel[:3], inverse=True).astype(np.double)
 
     # angular velocity
     ang_vel = data.sensor("angular-velocity").data.copy()
@@ -57,15 +61,10 @@ def get_mujoco_data(
     joints_vel = np.array(joints_vel)
 
     return (
-        quat.flatten(),
+        proj_gravity.flatten(),
+        lin_vel.flatten(),
         ang_vel.flatten(),
         joints_pos.flatten(),
         joints_vel.flatten(),
     )
 
-
-def get_projected_gravity(quat: np.ndarray) -> np.ndarray:
-    r = R.from_quat(quat)
-    g_world = np.array([0.0, 0.0, -1.0])
-    g_base = r.apply(g_world, inverse=True)
-    return g_base.flatten()
