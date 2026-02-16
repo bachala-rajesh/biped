@@ -22,14 +22,6 @@ All environments use `ManagerBasedRLEnv` and the `PointFootPPORunnerCfg` agent.
 
 ## Scripts
 
-### List / Check Environments
-
-Print all registered environments:
-
-```bash
-python scripts/list_envs.py
-```
-
 ### Training (RSL-RL)
 
 Train a policy with PPO:
@@ -52,6 +44,9 @@ Run a trained policy (fixed/random commands):
 
 ```bash
 python scripts/rsl_rl/play.py --task=biped_walk_flat_play --load_run RUN_NAME
+```
+```bash
+python scripts/list_envs.py
 ```
 
 Or with a specific checkpoint file:
